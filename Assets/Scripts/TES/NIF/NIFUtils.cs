@@ -1,8 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using UnityEngine;
+﻿using UnityEngine;
 
-namespace TESUnity
+namespace TES3Unity
 {
     public static class NIFUtils
     {
@@ -14,7 +12,7 @@ namespace TESUnity
         }
         public static Vector3 NifPointToUnityPoint(Vector3 NIFPoint)
         {
-            return NifVectorToUnityVector(NIFPoint) / Convert.meterInMWUnits;
+            return NifVectorToUnityVector(NIFPoint) / Convert.MeterInMWUnits;
         }
         public static Matrix4x4 NifRotationMatrixToUnityRotationMatrix(Matrix4x4 NIFRotationMatrix)
         {

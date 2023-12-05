@@ -34,3 +34,9 @@ Library/
 obj/
 Temp/
 Data Files/
+Screenshots/
+Exports/
+.idea/.idea.TES3Unity
+Logs
+UserSettings
+Assets/Scripts/TES/.idea

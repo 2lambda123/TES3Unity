@@ -8,19 +8,16 @@ using UnityEngine;
 /// </summary>
 public class UnityBinaryReader : IDisposable
 {
-    public Stream BaseStream
-    {
-        get { return reader.BaseStream; }
-    }
+    private BinaryReader _reader;
+    // A buffer for read bytes the size of a decimal variable. Created to minimize allocations. 
+    private byte[] _readBuffer = new byte[16];
+    private byte[] _emptyArray = new byte[0];
+
+    public Stream BaseStream => _reader.BaseStream;
 
     public UnityBinaryReader(Stream input)
     {
-        reader = new BinaryReader(input, Encoding.UTF8);
-    }
-
-    public UnityBinaryReader(Stream input, Encoding encoding)
-    {
-        reader = new BinaryReader(input, encoding);
+        _reader = new BinaryReader(input, Encoding.UTF8);
     }
 
     void IDisposable.Dispose()
@@ -35,67 +32,86 @@ public class UnityBinaryReader : IDisposable
 
     public void Close()
     {
-        if (reader != null)
+        if (_reader != null)
         {
-            reader.Close();
-            reader = null;
+            _reader.Close();
+            _reader = null;
         }
     }
 
     public byte ReadByte()
     {
-        return reader.ReadByte();
+        return _reader.ReadByte();
     }
 
     public sbyte ReadSByte()
     {
-        return reader.ReadSByte();
+        return _reader.ReadSByte();
     }
 
     public void Read(byte[] buffer, int index, int count)
     {
-        reader.Read(buffer, index, count);
+        _reader.Read(buffer, index, count);
     }
 
     public byte[] ReadBytes(int count)
     {
-        return reader.ReadBytes(count);
+        return _reader.ReadBytes(count);
     }
 
     public byte[] ReadRestOfBytes()
     {
-        var remainingByteCount = reader.BaseStream.Length - reader.BaseStream.Position;
+        var remainingByteCount = _reader.BaseStream.Length - _reader.BaseStream.Position;
 
         Debug.Assert(remainingByteCount <= int.MaxValue);
 
-        return reader.ReadBytes((int)remainingByteCount);
+        return _reader.ReadBytes((int)remainingByteCount);
     }
 
     public void ReadRestOfBytes(byte[] buffer, int startIndex)
     {
-        var remainingByteCount = reader.BaseStream.Length - reader.BaseStream.Position;
+        var remainingByteCount = _reader.BaseStream.Length - _reader.BaseStream.Position;
 
         Debug.Assert((startIndex >= 0) && (remainingByteCount <= int.MaxValue) && ((startIndex + remainingByteCount) <= buffer.Length));
 
-        reader.Read(buffer, startIndex, (int)remainingByteCount);
+        _reader.Read(buffer, startIndex, (int)remainingByteCount);
     }
 
     public string ReadASCIIString(int length)
     {
         Debug.Assert(length >= 0);
 
-        return Encoding.ASCII.GetString(reader.ReadBytes(length));
+        return Encoding.ASCII.GetString(_reader.ReadBytes(length));
+    }
+
+    public string ReadUnicodeString(int length)
+    {
+        return Encoding.Unicode.GetString(_reader.ReadBytes(length));
+    }
+
+    public string ReadUTF8String(int length)
+    {
+        return Encoding.UTF8.GetString(_reader.ReadBytes(length));
     }
 
     public string ReadPossiblyNullTerminatedASCIIString(int lengthIncludingPossibleNullTerminator)
     {
         Debug.Assert(lengthIncludingPossibleNullTerminator > 0);
 
-        var bytes = reader.ReadBytes(lengthIncludingPossibleNullTerminator);
+        var bytes = _reader.ReadBytes(lengthIncludingPossibleNullTerminator);
+        var count = bytes.Length;
+
+        for (var i = 0; i < bytes.Length; i++)
+        {
+            if (bytes[i] == 0)
+            {
+                count = i;
+                break;
+            }
+        }
 
         // Ignore the null terminator.
-        var charCount = (ArrayUtils.Last(bytes) != 0) ? bytes.Length : (bytes.Length - 1);
-        return Encoding.Default.GetString(bytes, 0, charCount);
+        return Encoding.Default.GetString(bytes, 0, count);
     }
 
     #region Little Endian
@@ -107,62 +123,69 @@ public class UnityBinaryReader : IDisposable
 
     public ushort ReadLEUInt16()
     {
-        reader.Read(readBuffer, 0, 2);
+        _reader.Read(_readBuffer, 0, 2);
 
-        return (ushort)((readBuffer[1] << 8) | readBuffer[0]);
+        return (ushort)((_readBuffer[1] << 8) | _readBuffer[0]);
     }
     public uint ReadLEUInt32()
     {
-        reader.Read(readBuffer, 0, 4);
+        _reader.Read(_readBuffer, 0, 4);
 
-        return ((uint)readBuffer[3] << 24) | ((uint)readBuffer[2] << 16) | ((uint)readBuffer[1] << 8) | readBuffer[0];
+        return ((uint)_readBuffer[3] << 24) | ((uint)_readBuffer[2] << 16) | ((uint)_readBuffer[1] << 8) | _readBuffer[0];
     }
     public ulong ReadLEUInt64()
     {
-        reader.Read(readBuffer, 0, 8);
+        _reader.Read(_readBuffer, 0, 8);
 
-        return ((ulong)readBuffer[7] << 56) | ((ulong)readBuffer[6] << 48) | ((ulong)readBuffer[5] << 40) | ((ulong)readBuffer[4] << 32) | ((ulong)readBuffer[3] << 24) | ((ulong)readBuffer[2] << 16) | ((ulong)readBuffer[1] << 8) | readBuffer[0];
+        return ((ulong)_readBuffer[7] << 56) | ((ulong)_readBuffer[6] << 48) | ((ulong)_readBuffer[5] << 40) | ((ulong)_readBuffer[4] << 32) | ((ulong)_readBuffer[3] << 24) | ((ulong)_readBuffer[2] << 16) | ((ulong)_readBuffer[1] << 8) | _readBuffer[0];
     }
 
     public short ReadLEInt16()
     {
-        reader.Read(readBuffer, 0, 2);
+        _reader.Read(_readBuffer, 0, 2);
 
-        return BitConverter.ToInt16(readBuffer, 0);
+        return BitConverter.ToInt16(_readBuffer, 0);
     }
 
     public int ReadLEInt32()
     {
-        reader.Read(readBuffer, 0, 4);
+        _reader.Read(_readBuffer, 0, 4);
 
-        return BitConverter.ToInt32(readBuffer, 0);
+        return BitConverter.ToInt32(_readBuffer, 0);
     }
 
     public long ReadLEInt64()
     {
-        reader.Read(readBuffer, 0, 8);
+        _reader.Read(_readBuffer, 0, 8);
 
-        return BitConverter.ToInt32(readBuffer, 0);
+        return BitConverter.ToInt32(_readBuffer, 0);
     }
 
     public float ReadLESingle()
     {
-        reader.Read(readBuffer, 0, 4);
+        _reader.Read(_readBuffer, 0, 4);
 
-        return BitConverter.ToSingle(readBuffer, 0);
+        return BitConverter.ToSingle(_readBuffer, 0);
     }
 
     public double ReadLEDouble()
     {
-        reader.Read(readBuffer, 0, 8);
+        _reader.Read(_readBuffer, 0, 8);
 
-        return BitConverter.ToDouble(readBuffer, 0);
+        return BitConverter.ToDouble(_readBuffer, 0);
     }
 
     public byte[] ReadLELength32PrefixedBytes()
     {
-        var length = ReadLEUInt32();
-        return reader.ReadBytes((int)length);
+        var length = ReadLEInt32();
+
+        if (length <= 0)
+        {
+            return _emptyArray;
+        }
+
+        var count = length;
+        return _reader.ReadBytes(count);
     }
 
     public string ReadLELength32PrefixedASCIIString()
@@ -301,222 +324,81 @@ public class UnityBinaryReader : IDisposable
 
     #endregion
 
-    #region Big Endian
+    #region Helpers
 
-    public bool ReadBEBool32()
+    public long ReadIntRecord(uint dataSize)
     {
-        return ReadBEUInt32() != 0;
-    }
-
-    public ushort ReadBEUInt16()
-    {
-        reader.Read(readBuffer, 0, 2);
-
-        return (ushort)((readBuffer[0] << 8) | readBuffer[1]);
-    }
-
-    public uint ReadBEUInt32()
-    {
-        reader.Read(readBuffer, 0, 4);
-
-        return ((uint)readBuffer[0] << 24) | ((uint)readBuffer[1] << 16) | ((uint)readBuffer[2] << 8) | readBuffer[3];
-    }
-
-    public ulong ReadBEUInt64()
-    {
-        reader.Read(readBuffer, 0, 8);
-
-        return ((ulong)readBuffer[0] << 56) | ((ulong)readBuffer[1] << 48) | ((ulong)readBuffer[2] << 40) | ((ulong)readBuffer[3] << 32) | ((ulong)readBuffer[4] << 24) | ((ulong)readBuffer[5] << 16) | ((ulong)readBuffer[6] << 8) | readBuffer[7];
-    }
-
-    public short ReadBEInt16()
-    {
-        var buffer = new byte[2];
-        reader.Read(buffer, 0, 2);
-        Array.Reverse(buffer);
-
-        return BitConverter.ToInt16(readBuffer, 0);
-    }
-
-    public int ReadBEInt32()
-    {
-        var buffer = new byte[4];
-        reader.Read(buffer, 0, 4);
-        Array.Reverse(buffer);
-
-        return BitConverter.ToInt32(readBuffer, 0);
-    }
-
-    public long ReadBEInt64()
-    {
-        var buffer = new byte[8];
-        reader.Read(buffer, 0, 8);
-        Array.Reverse(buffer);
-
-        return BitConverter.ToInt32(readBuffer, 0);
-    }
-
-    public float ReadBESingle()
-    {
-        var buffer = new byte[4];
-        reader.Read(buffer, 0, 4);
-        Array.Reverse(buffer);
-
-        return BitConverter.ToSingle(buffer, 0);
-    }
-
-    public double ReadBEDouble()
-    {
-        var buffer = new byte[8];
-        reader.Read(buffer, 0, 8);
-        Array.Reverse(buffer);
-
-        return BitConverter.ToDouble(buffer, 0);
-    }
-
-    public byte[] ReadBELength32PrefixedBytes()
-    {
-        var length = ReadBEUInt32();
-        return reader.ReadBytes((int)length);
-    }
-
-    public string ReadBELength32PrefixedASCIIString()
-    {
-        return Encoding.ASCII.GetString(ReadBELength32PrefixedBytes());
-    }
-
-    public Vector2 ReadBEVector2()
-    {
-        var x = ReadBESingle();
-        var y = ReadBESingle();
-
-        return new Vector2(x, y);
-    }
-
-    public Vector3 ReadBEVector3()
-    {
-        var x = ReadBESingle();
-        var y = ReadBESingle();
-        var z = ReadBESingle();
-
-        return new Vector3(x, y, z);
-    }
-
-    public Vector4 ReadBEVector4()
-    {
-        var x = ReadBESingle();
-        var y = ReadBESingle();
-        var z = ReadBESingle();
-        var w = ReadBESingle();
-
-        return new Vector4(x, y, z, w);
-    }
-
-    /// <summary>
-    /// Reads a column-major 3x3 matrix but returns a functionally equivalent 4x4 matrix.
-    /// </summary>
-    public Matrix4x4 ReadBEColumnMajorMatrix3x3()
-    {
-        var matrix = new Matrix4x4();
-
-        for (int columnIndex = 0; columnIndex < 4; columnIndex++)
+        if (dataSize == 1)
         {
-            for (int rowIndex = 0; rowIndex < 4; rowIndex++)
-            {
-                // If we're in the 3x3 part of the matrix, read values. Otherwise, use the identity matrix.
-                if ((rowIndex <= 2) && (columnIndex <= 2))
-                {
-                    matrix[rowIndex, columnIndex] = ReadBESingle();
-                }
-                else
-                {
-                    matrix[rowIndex, columnIndex] = (rowIndex == columnIndex) ? 1 : 0;
-                }
-            }
+            return ReadByte();
+        }
+        else if (dataSize == 2)
+        {
+            return ReadLEInt16();
+        }
+        else if (dataSize == 4)
+        {
+            return ReadLEInt32();
+        }
+        else if (dataSize == 8)
+        {
+            return ReadLEInt64();
         }
 
-        return matrix;
+        _reader.BaseStream.Position += dataSize;
+
+        return 0;
     }
 
-    /// <summary>
-    /// Reads a row-major 3x3 matrix but returns a functionally equivalent 4x4 matrix.
-    /// </summary>
-    public Matrix4x4 ReadBERowMajorMatrix3x3()
+    public float[] ReadDoubleArray(int size)
     {
-        var matrix = new Matrix4x4();
-
-        for (int rowIndex = 0; rowIndex < 4; rowIndex++)
+        var array = new float[size];
+        for (var i = 0; i < 4; i++)
         {
-            for (int columnIndex = 0; columnIndex < 4; columnIndex++)
-            {
-                // If we're in the 3x3 part of the matrix, read values. Otherwise, use the identity matrix.
-                if ((rowIndex <= 2) && (columnIndex <= 2))
-                {
-                    matrix[rowIndex, columnIndex] = ReadBESingle();
-                }
-                else
-                {
-                    matrix[rowIndex, columnIndex] = (rowIndex == columnIndex) ? 1 : 0;
-                }
-            }
+            array[i] = ReadLESingle();
+        }
+        return array;
+    }
+
+    public int[] ReadInt32Array(int size)
+    {
+        var array = new int[size];
+        for (var i = 0; i < size; i++)
+        {
+            array[i] = ReadLEInt32();
+        }
+        return array;
+    }
+
+    public float[] ReadFloatArray(int size)
+    {
+        var array = new float[size];
+        for (var i = 0; i < size; i++)
+        {
+            array[i] = ReadLESingle();
+        }
+        return array;
+    }
+
+    public string ReadStringFromChar(int size)
+    {
+        var bytes = ReadBytes(size);
+        var array = new char[size];
+
+        for (var i = 0; i < size; i++)
+        {
+            array[i] = System.Convert.ToChar(bytes[i]);
         }
 
-        return matrix;
+        return TES3Unity.Convert.CharToString(array);
     }
 
-    public Matrix4x4 ReadBEColumnMajorMatrix4x4()
+    public string ReadStringFromByte(int size)
     {
-        var matrix = new Matrix4x4();
-
-        for (int columnIndex = 0; columnIndex < 4; columnIndex++)
-        {
-            for (int rowIndex = 0; rowIndex < 4; rowIndex++)
-            {
-                matrix[rowIndex, columnIndex] = ReadBESingle();
-            }
-        }
-
-        return matrix;
+        var bytes = ReadBytes(size);
+        var str = Encoding.ASCII.GetString(bytes, 0, bytes.Length);
+        return TES3Unity.Convert.RemoveNullChar(str);
     }
 
-    public Matrix4x4 ReadBERowMajorMatrix4x4()
-    {
-        var matrix = new Matrix4x4();
-
-        for (int rowIndex = 0; rowIndex < 4; rowIndex++)
-        {
-            for (int columnIndex = 0; columnIndex < 4; columnIndex++)
-            {
-                matrix[rowIndex, columnIndex] = ReadBESingle();
-            }
-        }
-
-        return matrix;
-    }
-
-    public Quaternion ReadBEQuaternionWFirst()
-    {
-        float w = ReadBESingle();
-        float x = ReadBESingle();
-        float y = ReadBESingle();
-        float z = ReadBESingle();
-
-        return new Quaternion(x, y, z, w);
-    }
-
-    public Quaternion ReadBEQuaternionWLast()
-    {
-        float x = ReadBESingle();
-        float y = ReadBESingle();
-        float z = ReadBESingle();
-        float w = ReadBESingle();
-
-        return new Quaternion(x, y, z, w);
-    }
     #endregion
-
-    private BinaryReader reader;
-
-    // A buffer for read bytes the size of a decimal variable. Created to minimize allocations. 
-    private byte[] readBuffer = new byte[16];
 }

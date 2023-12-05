@@ -1,29 +1,186 @@
-﻿using System.IO;
-using System.Text;
+﻿using System;
+using System.Collections.Generic;
+using System.IO;
+using TES3Unity.ESM;
+using TES3Unity.ESM.Records;
+using TES3Unity.Rendering;
 using UnityEngine;
-using UnityEngine.Rendering.PostProcessing;
+using UnityEngine.Rendering.Universal;
 
-namespace TESUnity
+namespace TES3Unity
 {
-    public class GameSettings
+    public enum ShaderType
     {
-        private static readonly string ConfigFile = "config.ini";
-        private static readonly string MWDataPathName = "MorrowindDataPath";
+        PBR = 0, Simple
+    }
 
-        public static void SaveValue(string parameter, string value)
+    public enum PostProcessingQuality
+    {
+        None = 0, Low, Medium, High
+    }
+
+    public enum SRPQuality
+    {
+        Low = 0, High
+    }
+
+    [Serializable]
+    public sealed class GameSettings
+    {
+        private const string MorrowindPathKey = "tes3unity.path";
+        private const string StorageKey = "tes3unity.settings";
+        private const string AndroidFolderName = "TES3Unity";
+        private static GameSettings Instance = null;
+
+        public static readonly float[] CameraFarClipValues = new float[]
         {
-            var lines = File.ReadAllLines(ConfigFile);
+            50, 150, 250, 500, 1000, 2500
+        };
 
-            for (var i = 0; i < lines.Length; i++)
+        public static readonly ushort[] RenderScaleValues = new ushort[]
+        {
+            50, 60, 70, 80, 90, 100, 120, 140, 160, 180, 200
+        };
+
+        public static readonly ushort[] CellDistanceValues = new ushort[]
+        {
+            0, 1 , 2, 3, 4
+        };
+
+        public static readonly ushort[] VRFFRLevels = new ushort[]
+        {
+            0, 1, 2, 3, 4
+        };
+
+        public static readonly ushort[] VRRefreshRates = new ushort[]
+        {
+            60, 72, 80, 90, 120
+        };
+
+        public bool MusicEnabled = true;
+        public PostProcessingQuality PostProcessingQuality = PostProcessingQuality.High;
+        public SRPQuality SRPQuality = SRPQuality.High;
+        public AntialiasingMode AntiAliasingMode = AntialiasingMode.FastApproximateAntialiasing;
+        public bool GenerateNormalMaps = true;
+        public ShaderType ShaderType = ShaderType.PBR;
+        public float TerrainError = 5;
+        public float TreeDistance = 80;
+        public bool AnimateLights = true;
+        public bool SunShadows = true;
+        public bool PonctualLightShadows = true;
+        public bool ExteriorLights = true; 
+        public float CameraFarClip = 500.0f;
+        public ushort CellRadius = 2;
+        public ushort CellDetailRadius = 2;
+        public ushort CellRadiusOnLoad = 2;
+        public bool KinematicRigidbody = true;
+        public bool DayNightCycle = false;
+        public bool VRFollowHead = true;
+        public bool VRTeleportation = true;
+        public bool VRRoomScale = false;
+        public bool VRAppSpaceWarp = true;
+        public ushort VRFFRLevel = 3;
+        public ushort VRRefreshRate = 72;
+        public ushort VRRenderScale = 100;
+        public bool LoadExtensions = false;
+        public PlayerData Player;
+
+        public static NPC_Record GetPlayerRecord()
+        {
+            var playerData = Get().Player;
+            var items = new List<NPCOData>();
+            var race = playerData.Race.ToString().ToLower().Replace("_", " ");
+            var gender = playerData.Woman ? "f" : "m";
+
+            return NPC_Record.CreateRaw(
+                playerData.Name,
+                playerData.Race.ToString(),
+                playerData.Faction,
+                playerData.ClassName,
+                $"b_n_{race}_{gender}_head_01",
+                $"b_n_{race}_{gender}_hair_00",
+                playerData.Woman ? 1 : 0,
+                items);
+        }
+
+        public static void Save()
+        {
+            var instance = Get();
+            var json = JsonUtility.ToJson(instance);
+            PlayerPrefs.SetString(StorageKey, json);
+            PlayerPrefs.Save();
+        }
+
+        public static void Override(GameSettings settings)
+        {
+            Instance = settings;
+        }
+
+        public static GameSettings Get()
+        {
+            if (Instance == null)
             {
-                if (lines[i].Contains(parameter))
+                Instance = new GameSettings();
+
+                Instance.Player = new PlayerData
                 {
-                    lines[i] = string.Format("{0} = {1}", parameter, value);
-                    break;
+                    Name = "Player",
+                    Woman = false,
+                    Race = RaceType.Imperial
+                };
+
+#if UNITY_ANDROID || UNITY_IOS
+                Instance.GenerateNormalMaps = false;
+                Instance.SunShadows = false;
+                Instance.VRRenderScale = 90;
+                Instance.PostProcessingQuality = PostProcessingQuality.None;
+                Instance.ExteriorLights = false;
+                Instance.ShaderType = ShaderType.Simple;
+                Instance.CameraFarClip = 200;
+                Instance.DayNightCycle = false;
+                Instance.AntiAliasingMode = AntialiasingMode.None;
+                Instance.CellDetailRadius = 2;
+                Instance.CellRadius = 1;
+                Instance.VRAppSpaceWarp = true;
+#endif
+                if (PlayerPrefs.HasKey(StorageKey))
+                {
+                    var json = PlayerPrefs.GetString(StorageKey);
+                    if (!string.IsNullOrEmpty(json) && json != "{}")
+                    {
+                        Instance = JsonUtility.FromJson<GameSettings>(json);
+                    }
                 }
             }
 
-            File.WriteAllLines(ConfigFile, lines);
+            return Instance;
+        }
+
+        #region Static Functions
+
+        public static bool IsMobile()
+        {
+#if UNITY_ANDROID || UNITY_IOS
+            return true;
+#else
+            return false;
+#endif
+        }
+
+        public static LightShadows GetRecommandedShadows(bool ponctual)
+        {
+            var config = Get();
+
+            if (!config.PonctualLightShadows && ponctual || !config.SunShadows && !ponctual)
+            {
+                return LightShadows.None;
+            }
+            else if (IsMobile() || config.SRPQuality == SRPQuality.Low)
+            {
+                return LightShadows.Hard;
+            }
+
+            return LightShadows.Soft;
         }
 
         public static bool IsValidPath(string path)
@@ -33,158 +190,25 @@ namespace TESUnity
 
         public static void SetDataPath(string dataPath)
         {
-            SaveValue(MWDataPathName, dataPath);
+            PlayerPrefs.SetString(MorrowindPathKey, dataPath);
         }
 
         public static string GetDataPath()
         {
-            if (!File.Exists("config.ini"))
-                return string.Empty;
+            var path = PlayerPrefs.GetString(MorrowindPathKey);
 
-            var lines = File.ReadAllLines(ConfigFile);
-            foreach (var line in lines)
+            if (!string.IsNullOrEmpty(path))
             {
-                if (line.Contains(MWDataPathName))
-                {
-                    var tmp = line.Split('=');
-                    if (tmp.Length == 2)
-                        return tmp[1].Trim();
-                }
+                return path;
             }
 
+#if UNITY_ANDROID
+            return $"/sdcard/{AndroidFolderName}/Data Files";
+#else
             return string.Empty;
+#endif
         }
 
-        /// <summary>
-        /// Checks if a file named Config.ini is located left to the main executable.
-        /// Open/Parse it and configure default values.
-        /// </summary>
-        public static string CheckSettings(TESUnity tes)
-        {
-            var path = string.Empty;
-            var lines = File.ReadAllLines(ConfigFile);
-            var temp = new string[2];
-            var value = string.Empty;
-
-            foreach (var line in lines)
-            {
-                temp = line.Split('=');
-
-                if (temp.Length == 2)
-                {
-                    value = temp[1].Trim();
-
-                    switch (temp[0].Trim())
-                    {
-                        case "AntiAliasing":
-                            {
-                                int result;
-                                if (int.TryParse(value, out result))
-                                {
-                                    if (result >= 0 && result < 4)
-                                        tes.antiAliasing = (PostProcessLayer.Antialiasing)result;
-                                }
-                            }
-                            break;
-                        case "PostProcessQuality":
-                            {
-                                int result;
-                                if (int.TryParse(value, out result))
-                                {
-                                    if (result >= 0 && result < 4)
-                                        tes.postProcessingQuality = (TESUnity.PostProcessingQuality)result;
-                                }
-                            }
-                            break;
-                        case "AnimateLights": tes.animateLights = ParseBool(value, tes.animateLights); break;
-                        case "MorrowindDataPath": path = value; break;
-                        case "FollowHeadDirection": tes.followHeadDirection = ParseBool(value, tes.followHeadDirection); break;
-                        case "DirectModePreview": tes.directModePreview = ParseBool(value, tes.directModePreview); break;
-                        case "SunShadows": tes.renderSunShadows = ParseBool(value, tes.renderSunShadows); break;
-                        case "LightShadows": tes.renderLightShadows = ParseBool(value, tes.renderLightShadows); break;
-                        case "PlayMusic": tes.playMusic = ParseBool(value, tes.playMusic); break;
-                        case "RenderExteriorCellLights": tes.renderExteriorCellLights = ParseBool(value, tes.renderExteriorCellLights); break;
-                        case "WaterBackSideTransparent": tes.waterBackSideTransparent = ParseBool(value, tes.waterBackSideTransparent); break;
-                        case "RenderPath":
-                            var renderPathID = ParseInt(value, 0);
-                            if (renderPathID == 1 || renderPathID == 3)
-                                tes.renderPath = (RenderingPath)renderPathID;
-
-                            break;
-                        case "Shader":
-                            switch (value)
-                            {
-                                case "Default": tes.materialType = TESUnity.MWMaterialType.Default; break;
-                                case "Standard": tes.materialType = TESUnity.MWMaterialType.Standard; break;
-                                case "Unlit": tes.materialType = TESUnity.MWMaterialType.Unlit; break;
-                                default: tes.materialType = TESUnity.MWMaterialType.BumpedDiffuse; break;
-                            }
-                            break;
-                    }
-                }
-            }
-
-            return path;
-        }
-
-        public static void CreateConfigFile()
-        {
-            var sb = new StringBuilder();
-            sb.Append("# TESUnity Configuration File\r\n");
-            sb.Append("\r\n");
-
-            sb.Append("[Global]\r\n");
-            sb.Append("PlayMusic = \r\n");
-            sb.Append(string.Format("{0} = \r\n", MWDataPathName));
-            sb.Append("\r\n");
-
-            sb.Append("[Rendering]\r\n");
-            sb.Append("RenderPath = \r\n");
-            sb.Append("Shader = \r\n");
-            sb.Append("\r\n");
-
-            sb.Append("[Lighting]\r\n");
-            sb.Append("AnimateLights = \r\n");
-            sb.Append("SunShadows = \r\n");
-            sb.Append("LightShadows = \r\n");
-            sb.Append("RenderExteriorCellLights = \r\n");
-            sb.Append("\r\n");
-
-            sb.Append("[Effects]\r\n");
-            sb.Append("AntiAliasing = \r\n");
-            sb.Append("PostProcessQuality = \r\n");
-            sb.Append("WaterBackSideTransparent = \r\n");
-            sb.Append("\r\n");
-
-            sb.Append("[VR]\r\n");
-            sb.Append("FollowHeadDirection = \r\n");
-            sb.Append("DirectModePreview = \r\n");
-            sb.Append("\r\n");
-
-            sb.Append("[Debug]\r\n");
-            sb.Append("CreaturesEnabled = \r\n");
-
-            File.WriteAllText(ConfigFile, sb.ToString());
-        }
-
-        private static bool ParseBool(string value, bool defaultValue)
-        {
-            bool result;
-
-            if (bool.TryParse(value, out result))
-                return result;
-
-            return defaultValue;
-        }
-
-        private static int ParseInt(string value, int defaultValue)
-        {
-            int result;
-
-            if (int.TryParse(value, out result))
-                return result;
-
-            return defaultValue;
-        }
+        #endregion
     }
 }

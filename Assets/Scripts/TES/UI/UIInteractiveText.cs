@@ -1,8 +1,7 @@
-﻿using System;
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.UI;
 
-namespace TESUnity.UI
+namespace TES3Unity.UI
 {
     public class UIInteractiveText : MonoBehaviour
     {
@@ -25,7 +24,7 @@ namespace TESUnity.UI
         [SerializeField]
         private Text _value = null;
 
-        void Start()
+        private void Start()
         {
             _opened = false;
             _container.SetActive(false);
@@ -35,7 +34,9 @@ namespace TESUnity.UI
         {
             _icon.enabled = icon != null;
             if (_icon.enabled)
+            {
                 _icon.sprite = icon;
+            }
 
             _title.text = string.IsNullOrEmpty(prefixTitle) ? title : prefixTitle + title;
 

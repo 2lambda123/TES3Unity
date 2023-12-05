@@ -1,7 +1,9 @@
-﻿using UnityEngine;
+﻿using Demonixis.Toolbox.XR;
+using Demonixis.ToolboxV2.XR;
+using UnityEngine;
 using UnityEngine.UI;
 
-namespace TESUnity.UI
+namespace TES3Unity.UI
 {
     [RequireComponent(typeof(Image))]
     public class UICrosshair : MonoBehaviour
@@ -14,12 +16,21 @@ namespace TESUnity.UI
             set { _crosshair.enabled = value; }
         }
 
-        void Start()
+        private void Awake()
         {
-            var textureManager = TESUnity.instance.TextureManager;
-            var crosshairTexture = textureManager.LoadTexture("target", true);
             _crosshair = GetComponent<Image>();
-            _crosshair.sprite = GUIUtils.CreateSprite(crosshairTexture);
+        }
+
+        private void Start()
+        {
+            var textureManager = TES3Engine.Instance?.textureManager;
+            if (textureManager != null)
+            {
+                var crosshairTexture = textureManager.LoadTexture("target", true);
+                _crosshair.sprite = GUIUtils.CreateSprite(crosshairTexture);
+            }
+
+            _crosshair.enabled = !XRManager.IsXREnabled();
         }
 
         public void SetActive(bool active)

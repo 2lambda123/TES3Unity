@@ -1,71 +1,53 @@
-# TESUnity
+# TES3Unity
 
-World viewers for Elder Scrolls games in the Unity game engine with VR support supporting Oculus, OSVR and OpenVR. For advanced VR support, please read the README.md located into the `Vendors` folder.
+TES3Unity is an attempt to recreate the Morrowind Engine into the Unity3D game engine.
+
+## Status
+| Feature | Status |
+|---------|--------|
+| World Loading | OK |
+| NPC Loading | In progress |
+| Creature Loading | In Progress |
+| Script support | Not started |
+| Mod support | Not started |
+| Animation support | Need Help |
+| UI recreation | In progress |
+| Interactions | Started |
+| Player Management | Started |
+| VR support | OK |
+
 
 ## Getting Started
 
-**TESUnity requires a valid installation of Morrowind to run!**, you can get it on Steam or Gog.com.
+**TES3Unity requires a valid installation of Morrowind to run!**, you can get it on Steam or Gog.com.
 
-To get started, download the source code as a ZIP file, extract it, and open the TESUnity folder in Unity.
+To get started, go to the release tab and download the latest release for your device.
+Alternatively you can download the source code as a ZIP file, extract it, and open the TES3Unity folder in Unity.
 
-You can copy the `Data Files` folder from your Morrowind installation to the root folder of the project / release. The game will start automatically without asking for a path.
+Take a look at the `README-Config.md` file to tweak parameters. If you want to enjoy VR, take a look at `README-VR.md`. Finally input mapping is located at `README-Input.md`.
 
-## Configuration file
-You can use the `config.ini` file located at the root folder of the project / release folder to configure and tweak your game experience.
-The first step is to rename the `config.ini.dist` file to `config.ini`.
+### Desktop
+The game will ask you where is the **Data Files** folder the first time you start the game. If you move your Morrowind installation, the game will ask you again where is the **Data Files** folder.
+  
+### Mobile
+You've to copy the **Data Files** folder into a folder named `TES3Unity` on your SDCard. If the game can't open the game, please open an issue.
 
+### Supported Platforms
+|Platform | Status | Graphics API |
+|---------|--------|--------------|
+| Windows | Supported | Direct3D 11 |
+| Linux | Experimental | Vulkan |
+| Macos | Experimental | Metal |
+| Android (Flat) | Experimental | Vulkan & OpenGL ES3.1 |
+| Oculus Quest | Supported | Vulkan & OpenGL ES3.1 |
 
-| Parameter | Values |
-|-----------|---------|
-|**Global** | |
-| PlayMusic  | `True` or `False` |
-| MorrowindPath | The Morrowind's `Data Files` path |
-|**Lighting**| |
-| AnimateLights  | `True` or `False` |
-| SunShadows  | `True` or `False` |
-| LightShadows  | `True` or `False` |
-| RenderExteriorCellLights | `True` or `False` |
-|**Effects** | |
-|AntiAliasing | `True` or `False` |
-|AmbientOcclusion | `True` or `False` |
-|Bloom | `True` or `False` |
-|WaterBackSideTransparent | `True` or `False` |
-|**Rendering** | |
-| Shader  | `Unlit` or `Standard` or `Default` or `Bumped` |
-| RenderPath  | `1` = Forward, `3` = Deferred |
-|**VR** | |
-| FollowHeadDirection | `True` or `False` |
-| DirectModePreview | `True` or `False` |
-|**Debug** | |
-| CreaturesEnabled | `True` or `False` |
-
-## Controls
-| Action | Keys | Gamepad |
-|--------|------|---------|
-| Move | W, A, S, D* | Left thumbstick |
-| Sprint | Left Shift | Left thumbstick button | 
-| Walk | Left Ctrl | Right thumstick button |
-| Use / Open / Attack | Space | Button A |
-| Cancel / Menu | Left click | Button B | 
-| Take (book mode) | Nothing | Button X |
-| Jump | E | button Y |
-| Toggle Flight Mode | Tab | Nothing |
-| Toggle Lantern | L | Nothing |
-| Free Cursor Lock | Backquote | Nothing |
-
-\* *It uses the AZERTY mapping for French users.*
 
 ## Contribute
+Bugs and feature requests are listed on the [issues page](https://github.com/demonixis/TES3Unity/issues). 
+Please take a look at the wiki for more informations about the Morrowind file formats. Don't hesitate to contact me if you want to help but if you don't know where to start. We've have a lot of tasks, some very easy, other hard.
 
-Bugs and feature requests are listed on the [GitHub issues page](https://github.com/ColeDeanShepherd/TESUnity/issues). Feel free to fork the source code and contribute, or use it in any way that falls under the [MIT License](https://github.com/ColeDeanShepherd/TESUnity/blob/master/LICENSE.txt).
+### Thanks
+Special thanks to [Cole Dean Shepherd](https://github.com/ColeDeanShepherd) which have started [this work](https://github.com/ColeDeanShepherd/TESUnity).
 
-Please create a branch from develop for each "feature" (see [this article](http://nvie.com/posts/a-successful-git-branching-model/)).
-
-
-Morrowind Data Format Resources
--------------------------------
-
-* [ESM File Format Specification](http://www.mwmythicmods.com/argent/tech/es_format.html)
-* [BSA File Format Specification](http://www.uesp.net/wiki/Tes3Mod:BSA_File_Format)
-* [NIF File Format Specification](https://github.com/niftools/nifxml/blob/develop/nif.xml)
-* [NIF Viewer/Data Inspector](https://github.com/niftools/nifskope)
+## License
+This project is released under the [MIT License](https://github.com/demonixis/TES3Unity/blob/master/LICENSE.txt)

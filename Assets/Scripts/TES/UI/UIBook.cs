@@ -1,77 +1,52 @@
 ﻿using System;
-using System.Collections;
-using TESUnity.ESM;
+using TES3Unity.ESM.Records;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace TESUnity.UI
+namespace TES3Unity.UI
 {
-    public class UIBook : MonoBehaviour
+    public class UIBook : UIReadable
     {
         private int _numberOfPages;
         private int _cursor;
         private string[] _pages;
-        private BOOKRecord _bookRecord;
 
         [SerializeField]
         private int _numCharPerPage = 565;
-
         [SerializeField]
-        private GameObject _container = null;
+        protected Text _page1 = null;
         [SerializeField]
-        private Image _background = null;
+        protected Text _page2 = null;
         [SerializeField]
-        private Text _page1 = null;
+        protected Text _numPage1 = null;
         [SerializeField]
-        private Text _page2 = null;
-        [SerializeField]
-        private Text _numPage1 = null;
-        [SerializeField]
-        private Text _numPage2 = null;
+        protected Text _numPage2 = null;
         [SerializeField]
         private Button _nextButton = null;
         [SerializeField]
         private Button _previousButton = null;
 
-        public event Action<BOOKRecord> OnTake = null;
-        public event Action<BOOKRecord> OnClosed = null;
+        public override string BackgroundImageName => "tx_menubook";
 
-        void Start()
+        public override void Show(BOOKRecord book)
         {
-            var texture = TESUnity.instance.TextureManager.LoadTexture("tx_menubook", true);
-            _background.sprite = GUIUtils.CreateSprite(texture);
+            m_BookRecord = book;
 
-            // If the book is already opened, don't change its transform.
-            if (_bookRecord == null)
-                Close();
-        }
-
-        void Update()
-        {
-            if (!_container.activeSelf)
-                return;
-
-            if (Input.GetButtonDown("Use"))
-                Take();
-            else if (Input.GetButtonDown("Menu"))
-                Close();
-        }
-
-        public void Show(BOOKRecord book)
-        {
-            _bookRecord = book;
-
-            var words = _bookRecord.TEXT.value;
-            words = words.Replace("<BR>", "\n");
+            var words = m_BookRecord.Text;
             words = words.Replace("<BR><BR>", "\n");
+            words = words.Replace("<BR>", "\n");
             words = System.Text.RegularExpressions.Regex.Replace(words, @"<[^>]*>", string.Empty);
 
             var countChar = 0;
             var j = 0;
 
             for (var i = 0; i < words.Length; i++)
+            {
                 if (words[i] != '\n')
+                {
                     countChar++;
+                }
+            }
 
             // Ceil returns the bad value... 16.6 returns 16..
             _numberOfPages = Mathf.CeilToInt(countChar / _numCharPerPage) + 1;
@@ -86,7 +61,9 @@ namespace TESUnity.UI
                 }
 
                 if (_pages[j] == null)
+                {
                     _pages[j] = String.Empty;
+                }
 
                 _pages[j] += words[i];
             }
@@ -95,7 +72,7 @@ namespace TESUnity.UI
 
             UpdateBook();
 
-            StartCoroutine(SetBookActive(true));
+            StartCoroutine(SetReadableActive(true));
         }
 
         private void UpdateBook()
@@ -115,27 +92,25 @@ namespace TESUnity.UI
             _previousButton.interactable = _cursor - 2 >= 0;
 
             if (_cursor + 2 < _numberOfPages && _pages[_cursor + 2] == string.Empty)
+            {
                 _nextButton.interactable = false;
+            }
 
             _numPage1.text = (_cursor + 1).ToString();
             _numPage2.text = (_cursor + 2).ToString();
         }
 
-        public void Take()
-        {
-            if (OnTake != null)
-                OnTake(_bookRecord);
-
-            Close();
-        }
-
         public void Next()
         {
             if (_cursor + 2 >= _numberOfPages)
+            {
                 return;
+            }
 
             if (_pages[_cursor + 2] == string.Empty)
+            {
                 return;
+            }
 
             _cursor += 2;
 
@@ -145,28 +120,13 @@ namespace TESUnity.UI
         public void Previous()
         {
             if (_cursor - 2 < 0)
+            {
                 return;
+            }
 
             _cursor -= 2;
 
             UpdateBook();
-        }
-
-        public void Close()
-        {
-            _container.SetActive(false);
-
-            if (OnClosed != null)
-                OnClosed(_bookRecord);
-
-            _bookRecord = null;
-        }
-
-        private IEnumerator SetBookActive(bool active)
-        {
-            yield return new WaitForEndOfFrame();
-
-            _container.SetActive(active);
         }
     }
 }
